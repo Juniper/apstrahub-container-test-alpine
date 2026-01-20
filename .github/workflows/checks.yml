@@ -1,0 +1,44 @@
+#  Copyright (c) Juniper Networks, Inc., 2025-2026.
+#  All rights reserved.
+#  SPDX-License-Identifier: MIT
+
+name: Checks
+
+on:
+  push:
+
+jobs:
+  license-file-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Read me if there are errors!
+        run: echo "errors in this section might be resolved by reviewing https://github.com/chrismarget-j/apstrahub-configpack-example/blob/main/publisher_guide/license.md"
+      - name: Check license headers
+        run: ./.ci/scripts/check_license.sh
+
+  dockerfile-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
+        with:
+          dockerfile: Dockerfile
+
+  cosign-key-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Verify cosign.pub exists
+        run: |
+          if [[ ! -f cosign.pub ]]; then
+            echo "ERROR: cosign.pub not found in repository root"
+            echo "Generate with: cosign generate-key-pair"
+            exit 1
+          fi
+          echo "cosign.pub found"
+          cat cosign.pub

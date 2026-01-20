@@ -1,0 +1,23 @@
+# Git ignore patterns for ApstraHub container repository
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Build artifacts
+*.tar
+*.tar.gz
+
+# Cosign private key (NEVER commit this!)
+cosign.key
+
+# Local testing
+.env
+.env.local
