@@ -9,6 +9,10 @@ on:
     tags:
       - 'v*'
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
   build-sign-release:
     runs-on: ubuntu-latest
@@ -27,7 +31,7 @@ jobs:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -38,7 +42,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -57,17 +61,22 @@ jobs:
       - name: Sign Container with Cosign (Keyless via Sigstore/OIDC)
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
+          # Lowercase the image name for OCI compliance
+          IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         run: |
-          IMAGE="ghcr.io/${{ github.repository }}@${DIGEST}"
+          IMAGE_LOWER=$(echo "${IMAGE_REF}" | tr '[:upper:]' '[:lower:]')
+          IMAGE="${IMAGE_LOWER}@${DIGEST}"
           echo "Signing image: $IMAGE"
           cosign sign --yes "$IMAGE"
 
       - name: Create container-url.txt
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         run: |
-          # Include digest for immutable reference
-          echo "ghcr.io/${{ github.repository }}@${DIGEST}" > container-url.txt
+          # Lowercase and include digest for immutable reference
+          IMAGE_LOWER=$(echo "${IMAGE_REF}" | tr '[:upper:]' '[:lower:]')
+          echo "${IMAGE_LOWER}@${DIGEST}" > container-url.txt
           echo "Container URL: $(cat container-url.txt)"
 
       - name: Create GitHub Release
