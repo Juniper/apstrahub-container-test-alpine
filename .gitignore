@@ -18,6 +18,12 @@ Thumbs.db
 # Cosign private key (NEVER commit this!)
 cosign.key
 
+# Python version files (local dev only)
+.python-version
+
 # Local testing
 .env
 .env.local
+
+# Private keys
+*.key
