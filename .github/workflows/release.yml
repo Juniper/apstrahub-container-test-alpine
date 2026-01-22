@@ -62,8 +62,14 @@ jobs:
           DIGEST: ${{ steps.build.outputs.digest }}
           # Lowercase the image name for OCI compliance
           IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          COSIGN_PASSWORD: ""  # Private key stored without password in secret
+          # COSIGN_PASSWORD defaults to empty if not set
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
         run: |
+          if [ -z "${{ secrets.COSIGN_PRIVATE_KEY }}" ]; then
+            echo "ERROR: COSIGN_PRIVATE_KEY secret is not set"
+            echo "Please add the private key as a repository secret"
+            exit 1
+          fi
           IMAGE_LOWER=$(echo "${IMAGE_REF}" | tr '[:upper:]' '[:lower:]')
           IMAGE="${IMAGE_LOWER}@${DIGEST}"
           echo "Signing image: $IMAGE"
