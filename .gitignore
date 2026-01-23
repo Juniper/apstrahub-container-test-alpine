@@ -27,3 +27,6 @@ cosign.key
 
 # Private keys
 *.key
+
+# Hub architecture documentation
+hub*.md
