@@ -92,11 +92,6 @@ The private key must be stored as a GitHub secret for CI signing:
 
 ⚠️ **Important**: Keep `cosign.key` secure and never commit it to the repository!
 
-## Related Documentation
-
-- [hub_container.md](https://github.com/Juniper/aide-jcloud/blob/main/tests/dc_assurance/hub_container.md) - Container publishing design
-- [hub.md](https://github.com/Juniper/aide-jcloud/blob/main/tests/dc_assurance/hub.md) - ApstraHub design
-
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
