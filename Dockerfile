@@ -14,5 +14,10 @@ LABEL org.opencontainers.image.source="https://github.com/Juniper/apstrahub-cont
 LABEL org.opencontainers.image.vendor="Juniper Networks"
 LABEL org.opencontainers.image.licenses="MIT"
 
+# Apstra Hub tags (required for publishing)
+# - purpose: Required. Must be "Feature" or "Analytics"
+# - type: Optional. If set, must be "Container"
+LABEL org.apstrahub.tags='{"purpose": "Feature"}'
+
 # Keep it minimal - just echo for health check
 CMD ["echo", "ApstraHub container example"]

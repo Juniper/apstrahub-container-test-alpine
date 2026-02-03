@@ -33,6 +33,21 @@ The container includes standard OCI labels for metadata extraction:
 - `org.opencontainers.image.source`: https://github.com/Juniper/apstrahub-container-test-alpine
 - `org.opencontainers.image.licenses`: MIT
 
+### Apstra Hub Tags (Required)
+
+The container includes the required `org.apstrahub.tags` label for Apstra Hub publishing:
+
+```json
+{"purpose": "Feature"}
+```
+
+| Key | Required | Valid Values | Description |
+|-----|----------|--------------|-------------|
+| `purpose` | **Yes** | `Feature`, `Analytics` | Categorizes the container's purpose |
+| `type` | No | `Container` | Optional; if set, must be `Container` |
+
+See [hub_container.md](hub_container.md) for the complete specification.
+
 ## Release Workflow
 
 When a tag matching `v*` is pushed (e.g., `v1.0.0`):

@@ -42,3 +42,50 @@ jobs:
           fi
           echo "cosign.pub found"
           cat cosign.pub
+
+  label-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3.7.1
+
+      - name: Build container locally
+        run: docker build -t label-check:test .
+
+      - name: Validate Apstra Hub labels
+        run: |
+          set -e
+
+          # Extract org.apstrahub.tags label
+          TAGS_LABEL=$(docker inspect label-check:test --format '{{index .Config.Labels "org.apstrahub.tags"}}')
+
+          if [[ -z "$TAGS_LABEL" || "$TAGS_LABEL" == "<no value>" ]]; then
+            echo "ERROR: Missing required label 'org.apstrahub.tags'"
+            echo "Add to Dockerfile: LABEL org.apstrahub.tags='{\"purpose\": \"Feature\"}'"
+            exit 1
+          fi
+
+          echo "Found org.apstrahub.tags: $TAGS_LABEL"
+
+          # Validate purpose key exists and has valid value
+          PURPOSE=$(echo "$TAGS_LABEL" | jq -r '.purpose // empty')
+          if [[ -z "$PURPOSE" ]]; then
+            echo "ERROR: 'org.apstrahub.tags' must contain 'purpose' key"
+            exit 1
+          fi
+          if [[ "$PURPOSE" != "Feature" && "$PURPOSE" != "Analytics" ]]; then
+            echo "ERROR: 'purpose' must be 'Feature' or 'Analytics', got: $PURPOSE"
+            exit 1
+          fi
+
+          # Validate type if present (must be "Container")
+          TYPE=$(echo "$TAGS_LABEL" | jq -r '.type // empty')
+          if [[ -n "$TYPE" && "$TYPE" != "Container" ]]; then
+            echo "ERROR: 'type' must be 'Container' if set, got: $TYPE"
+            exit 1
+          fi
+
+          echo "✓ Label validation passed: purpose=$PURPOSE"

@@ -60,6 +60,55 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
 
+      - name: Validate Container Labels
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        run: |
+          set -e
+          IMAGE_LOWER=$(echo "${IMAGE_REF}" | tr '[:upper:]' '[:lower:]')
+          IMAGE="${IMAGE_LOWER}@${DIGEST}"
+
+          echo "Inspecting image: $IMAGE"
+
+          # Extract org.apstrahub.tags label from pushed image
+          TAGS_LABEL=$(docker buildx imagetools inspect "$IMAGE" --format '{{json .}}' | jq -r '.manifest.annotations["org.apstrahub.tags"] // .config.Labels["org.apstrahub.tags"] // empty')
+
+          # If not found in manifest annotations, try OCI config
+          if [[ -z "$TAGS_LABEL" ]]; then
+            # Pull and inspect locally for label
+            docker pull "$IMAGE" --platform linux/amd64
+            TAGS_LABEL=$(docker inspect "$IMAGE" --format '{{index .Config.Labels "org.apstrahub.tags"}}')
+          fi
+
+          if [[ -z "$TAGS_LABEL" || "$TAGS_LABEL" == "<no value>" ]]; then
+            echo "ERROR: Missing required label 'org.apstrahub.tags'"
+            echo "Container will not be signed. Add the label to your Dockerfile."
+            exit 1
+          fi
+
+          echo "Found org.apstrahub.tags: $TAGS_LABEL"
+
+          # Validate purpose key exists and has valid value
+          PURPOSE=$(echo "$TAGS_LABEL" | jq -r '.purpose // empty')
+          if [[ -z "$PURPOSE" ]]; then
+            echo "ERROR: 'org.apstrahub.tags' must contain 'purpose' key"
+            exit 1
+          fi
+          if [[ "$PURPOSE" != "Feature" && "$PURPOSE" != "Analytics" ]]; then
+            echo "ERROR: 'purpose' must be 'Feature' or 'Analytics', got: $PURPOSE"
+            exit 1
+          fi
+
+          # Validate type if present (must be "Container")
+          TYPE=$(echo "$TAGS_LABEL" | jq -r '.type // empty')
+          if [[ -n "$TYPE" && "$TYPE" != "Container" ]]; then
+            echo "ERROR: 'type' must be 'Container' if set, got: $TYPE"
+            exit 1
+          fi
+
+          echo "✓ Label validation passed: purpose=$PURPOSE"
+
       - name: Sign Container with Cosign (Key-Pair)
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
