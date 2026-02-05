@@ -10,15 +10,17 @@ on:
       - 'v*'
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  ECR_REGISTRY: public.ecr.aws/y0y9w6z0
+  IMAGE_NAME: juniper/apstrahub-container-test-alpine
+  AWS_ROLE_ARN: arn:aws:iam::815722156552:role/hub-publisher-role
+  AWS_REGION: us-east-1
 
 jobs:
   build-sign-release:
     runs-on: ubuntu-latest
     permissions:
+      id-token: write
       contents: write
-      packages: write
 
     steps:
       - name: Checkout
@@ -27,12 +29,17 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722 # v4.1.0
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          role-session-name: github-actions-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR Public
+        run: |
+          aws ecr-public get-login-password --region ${{ env.AWS_REGION }} | \
+            docker login --username AWS --password-stdin public.ecr.aws
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3.7.1
@@ -41,7 +48,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.ECR_REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -63,7 +70,7 @@ jobs:
       - name: Validate Container Labels
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
-          IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          IMAGE_REF: ${{ env.ECR_REGISTRY }}/${{ env.IMAGE_NAME }}
         run: |
           set -e
           IMAGE_LOWER=$(echo "${IMAGE_REF}" | tr '[:upper:]' '[:lower:]')
@@ -112,8 +119,7 @@ jobs:
       - name: Sign Container with Cosign (Key-Pair)
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
-          # Lowercase the image name for OCI compliance
-          IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          IMAGE_REF: ${{ env.ECR_REGISTRY }}/${{ env.IMAGE_NAME }}
           # COSIGN_PASSWORD defaults to empty if not set
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
         run: |
@@ -132,11 +138,10 @@ jobs:
       - name: Create container-url.txt
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
-          IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          IMAGE_REF: ${{ env.ECR_REGISTRY }}/${{ env.IMAGE_NAME }}
         run: |
-          # Lowercase and include digest for immutable reference
-          IMAGE_LOWER=$(echo "${IMAGE_REF}" | tr '[:upper:]' '[:lower:]')
-          echo "${IMAGE_LOWER}@${DIGEST}" > container-url.txt
+          # ECR Public URL with digest for immutable reference
+          echo "${IMAGE_REF}@${DIGEST}" > container-url.txt
           echo "Container URL: $(cat container-url.txt)"
 
       - name: Create GitHub Release
