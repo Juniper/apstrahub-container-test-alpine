@@ -40,6 +40,8 @@ jobs:
       - name: Extract metadata for Docker
         id: meta
         uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -61,12 +63,10 @@ jobs:
           annotations: ${{ steps.meta.outputs.annotations }}
           platforms: linux/amd64,linux/arm64
 
-      - name: Sign Container with Cosign (Key-Pair)
+      - name: Sign Container and Create container-url.txt
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
-          # Lowercase the image name for OCI compliance
           IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          # COSIGN_PASSWORD defaults to empty if not set
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
         run: |
           if [ -z "${{ secrets.COSIGN_PRIVATE_KEY }}" ]; then
@@ -80,15 +80,7 @@ jobs:
           echo "${{ secrets.COSIGN_PRIVATE_KEY }}" > cosign.key
           cosign sign --key cosign.key --yes "$IMAGE"
           rm -f cosign.key
-
-      - name: Create container-url.txt
-        env:
-          DIGEST: ${{ steps.build.outputs.digest }}
-          IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        run: |
-          # Lowercase and include digest for immutable reference
-          IMAGE_LOWER=$(echo "${IMAGE_REF}" | tr '[:upper:]' '[:lower:]')
-          echo "${IMAGE_LOWER}@${DIGEST}" > container-url.txt
+          echo "${IMAGE}" > container-url.txt
           echo "Container URL: $(cat container-url.txt)"
 
       - name: Create GitHub Release
